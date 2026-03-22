@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>The Noise Wall Lie — Highway Barrier Effectiveness · Los Angeles</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <header id="app-header">
+    <div id="title-block">
+      <h1>The Noise Wall Lie</h1>
+      <p>Highway Noise Barrier Effectiveness & Equity · Los Angeles · FHWA / Caltrans</p>
+    </div>
+    <div id="stats-bar">
+      <div class="stat-pill"><span class="stat-num" id="stat-barriers">14</span><span class="stat-label">barriers analyzed</span></div>
+      <div class="stat-pill"><span class="stat-num" id="stat-promised">10.1 dB</span><span class="stat-label">avg promised</span></div>
+      <div class="stat-pill"><span class="stat-num" id="stat-actual">8.4 dB</span><span class="stat-label">avg actual</span></div>
+      <div class="stat-pill"><span class="stat-num" id="stat-gaps">8</span><span class="stat-label">unprotected gaps</span></div>
+    </div>
+  </header>
+
+  <main id="main-layout">
+    <aside id="sidebar">
+      <section class="panel">
+        <h2>Filters</h2>
+        <label class="filter-group">
+          Highway
+          <select id="filter-highway">
+            <option value="all">All Highways</option>
+            <option value="I-405">I-405 San Diego Fwy</option>
+            <option value="I-10">I-10 Santa Monica Fwy</option>
+            <option value="I-5">I-5 Golden State Fwy</option>
+            <option value="I-110">I-110 Harbor Fwy</option>
+            <option value="I-105">I-105 Century Fwy</option>
+            <option value="I-210">I-210 Foothill Fwy</option>
+          </select>
+        </label>
+        <label class="filter-group">
+          Show
+          <select id="filter-show">
+            <option value="all">Barriers + Gaps</option>
+            <option value="barriers">Barriers only</option>
+            <option value="gaps">Gaps only (unprotected)</option>
+            <option value="underperforming">Underperforming barriers</option>
+          </select>
+        </label>
+        <label class="filter-group checkbox-group">
+          <input type="checkbox" id="toggle-demographics" />
+          Show demographic overlay
+        </label>
+      </section>
+
+      <section class="panel" id="legend-panel">
+        <h2>Effectiveness</h2>
+        <div class="legend-item"><span class="legend-line" style="background:#44cc44"></span>High (≥10 dB reduction)</div>
+        <div class="legend-item"><span class="legend-line" style="background:#ffd700"></span>Medium (7–9 dB reduction)</div>
+        <div class="legend-item"><span class="legend-line" style="background:#ff7b00"></span>Low (&lt;7 dB reduction)</div>
+        <div class="legend-item"><span class="legend-line" style="background:#e84141;border-style:dashed"></span>Unprotected gap</div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <div class="equity-note">
+            <strong>Equity Finding:</strong> Neighborhoods over 75% white receive barrier protection at <strong>2.4x the rate</strong> of majority-minority communities adjacent to the same highways.
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="info-panel" style="display:none">
+        <div id="info-header"><h2 id="info-title">—</h2><button id="info-close">✕</button></div>
+        <div id="info-content"></div>
+      </section>
+
+      <section class="panel" id="equity-panel">
+        <h2>Equity by Income</h2>
+        <div id="equity-bars"></div>
+      </section>
+
+      <section class="panel" id="about-panel">
+        <h2>About</h2>
+        <p>State DOTs spend over $500 million annually on highway noise barriers. This analysis tests whether barriers deliver the noise reduction promised in their engineering justifications, and whether barrier placement correlates with neighborhood demographics.</p>
+        <p style="margin-top:8px">Data: BTS National Noise Map · FHWA Noise Barrier Inventory · Caltrans · ACS Demographics</p>
+      </section>
+    </aside>
+    <div id="map"></div>
+  </main>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
