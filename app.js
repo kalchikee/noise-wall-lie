@@ -1,6 +1,6 @@
 'use strict';
 const LA = [-118.2437, 34.0522];
-let map, barrierData, equityData;
+let map, barrierData, equityData, activePopup;
 
 function effectivenessColor(eff, isGap) {
   if (isGap) return '#e84141';
@@ -46,13 +46,15 @@ map.on('load', () => {
 
     map.on('mouseenter','barrier-lines',()=>map.getCanvas().style.cursor='pointer');
     map.on('mouseleave','barrier-lines',()=>map.getCanvas().style.cursor='');
-    map.on('click','barrier-lines', e => showBarrierDetail(e.features[0].properties));
+    map.on('click','barrier-lines', e => {
+      if (activePopup) activePopup.remove();
+      activePopup = new maplibregl.Popup({maxWidth:'300px', className:'barrier-popup'})
+        .setLngLat(e.lngLat)
+        .setHTML(buildBarrierHTML(e.features[0].properties))
+        .addTo(map);
+    });
 
     setupFilters();
-    document.getElementById('info-close').addEventListener('click',()=>{
-      document.getElementById('info-panel').style.display='none';
-      document.getElementById('about-panel').style.display='';
-    });
   });
 });
 
@@ -70,52 +72,44 @@ function buildEquityBars(equity) {
   });
 }
 
-function showBarrierDetail(p) {
-  document.getElementById('info-panel').style.display='';
-  document.getElementById('about-panel').style.display='none';
-  document.getElementById('info-title').textContent = p.name;
-
+function buildBarrierHTML(p) {
   const isGap = p.effectiveness === 'gap';
-  const eff = p.effectiveness;
-  const color = effectivenessColor(eff, isGap);
-
+  const title = `<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">${p.name}</div>`;
   if (isGap) {
-    document.getElementById('info-content').innerHTML = `
+    return title + `
       <div class="gap-warning">⚠ UNPROTECTED GAP — No noise barrier at this location</div>
-      <div style="height:10px"></div>
+      <div style="height:8px"></div>
       <div class="info-row"><span class="info-key">Highway</span><span class="info-value">${p.highway}</span></div>
       <div class="info-row"><span class="info-key">Community</span><span class="info-value">${p.community}</span></div>
       <div class="info-row"><span class="info-key">Exposed homes</span><span class="info-value" style="color:#ff8888">${Number(p.exposed_homes).toLocaleString()}</span></div>
-      <div class="info-row"><span class="info-key">Ambient noise level</span><span class="info-value">${p.noise_before_db} dB</span></div>
+      <div class="info-row"><span class="info-key">Ambient noise</span><span class="info-value">${p.noise_before_db} dB</span></div>
       <div class="info-row"><span class="info-key">Median income</span><span class="info-value">$${Number(p.median_income).toLocaleString()}</span></div>
-      <div class="info-row"><span class="info-key">% minority residents</span><span class="info-value">${p.pct_minority}%</span></div>
-    `;
-  } else {
-    const perf = p.performance_gap;
-    document.getElementById('info-content').innerHTML = `
-      <div class="db-compare">
-        <div class="db-box" style="background:rgba(68,204,68,.1);border:1px solid rgba(68,204,68,.2)">
-          <div class="val" style="color:#77dd77">${p.noise_reduction_db} dB</div>
-          <div class="lbl">Actual reduction</div>
-        </div>
-        <div class="db-box" style="background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.2)">
-          <div class="val" style="color:#c39bd3">${p.promised_reduction_db} dB</div>
-          <div class="lbl">Promised reduction</div>
-        </div>
-      </div>
-      ${perf > 0 ? `<div style="font-size:12px;color:#ff8888;margin-bottom:10px">⚠ Underperforming by ${perf} dB vs. engineering estimate</div>` : `<div style="font-size:12px;color:#77dd77;margin-bottom:10px">✓ Performing as designed</div>`}
-      <div class="info-row"><span class="info-key">Highway</span><span class="info-value">${p.highway}</span></div>
-      <div class="info-row"><span class="info-key">Community</span><span class="info-value">${p.community}</span></div>
-      <div class="info-row"><span class="info-key">Length</span><span class="info-value">${Number(p.length_ft).toLocaleString()} ft</span></div>
-      <div class="info-row"><span class="info-key">Height</span><span class="info-value">${p.height_ft} ft</span></div>
-      <div class="info-row"><span class="info-key">Year built</span><span class="info-value">${p.year_built}</span></div>
-      <div class="info-row"><span class="info-key">Noise before</span><span class="info-value">${p.noise_before_db} dB</span></div>
-      <div class="info-row"><span class="info-key">Noise after</span><span class="info-value">${p.noise_after_db} dB</span></div>
-      <div class="info-row"><span class="info-key">Median income</span><span class="info-value">$${Number(p.median_income).toLocaleString()}</span></div>
-      <div class="info-row"><span class="info-key">% white residents</span><span class="info-value">${p.pct_white}%</span></div>
-      <div class="info-row"><span class="info-key">Property value premium</span><span class="info-value">+${p.property_value_premium_pct}%</span></div>
+      <div class="info-row"><span class="info-key">% minority</span><span class="info-value">${p.pct_minority}%</span></div>
     `;
   }
+  const perf = p.performance_gap;
+  return title + `
+    <div class="db-compare">
+      <div class="db-box" style="background:rgba(68,204,68,.1);border:1px solid rgba(68,204,68,.2)">
+        <div class="val" style="color:#77dd77">${p.noise_reduction_db} dB</div>
+        <div class="lbl">Actual reduction</div>
+      </div>
+      <div class="db-box" style="background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.2)">
+        <div class="val" style="color:#c39bd3">${p.promised_reduction_db} dB</div>
+        <div class="lbl">Promised</div>
+      </div>
+    </div>
+    ${perf > 0 ? `<div style="font-size:12px;color:#ff8888;margin-bottom:8px">⚠ Underperforming by ${perf} dB</div>` : `<div style="font-size:12px;color:#77dd77;margin-bottom:8px">✓ Performing as designed</div>`}
+    <div class="info-row"><span class="info-key">Highway</span><span class="info-value">${p.highway}</span></div>
+    <div class="info-row"><span class="info-key">Community</span><span class="info-value">${p.community}</span></div>
+    <div class="info-row"><span class="info-key">Length</span><span class="info-value">${Number(p.length_ft).toLocaleString()} ft</span></div>
+    <div class="info-row"><span class="info-key">Height</span><span class="info-value">${p.height_ft} ft</span></div>
+    <div class="info-row"><span class="info-key">Year built</span><span class="info-value">${p.year_built}</span></div>
+    <div class="info-row"><span class="info-key">Noise before / after</span><span class="info-value">${p.noise_before_db} → ${p.noise_after_db} dB</span></div>
+    <div class="info-row"><span class="info-key">Median income</span><span class="info-value">$${Number(p.median_income).toLocaleString()}</span></div>
+    <div class="info-row"><span class="info-key">% white residents</span><span class="info-value">${p.pct_white}%</span></div>
+    <div class="info-row"><span class="info-key">Property value premium</span><span class="info-value">+${p.property_value_premium_pct}%</span></div>
+  `;
 }
 
 function setupFilters() {
