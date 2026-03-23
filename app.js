@@ -27,31 +27,45 @@ map.on('load', () => {
 
     map.addSource('barriers', {type:'geojson', data:barriers});
 
-    // Barrier lines
+    // Background glow for all features
     map.addLayer({
       id:'barrier-lines-bg', type:'line', source:'barriers',
       paint:{
-        'line-color':['case',['==',['get','effectiveness'],'gap'],'#e84141',['==',['get','effectiveness'],'high'],'#44cc44',['==',['get','effectiveness'],'medium'],'#ffd700','#ff7b00'],
-        'line-width':8, 'line-opacity':0.2
+        'line-color':['case',['==',['get','effectiveness'],'gap'],'#ff4444',['==',['get','effectiveness'],'high'],'#44cc44',['==',['get','effectiveness'],'medium'],'#ffd700','#ff7b00'],
+        'line-width':12, 'line-opacity':0.25
       }
     });
+    // Solid lines for actual barriers (non-gap)
     map.addLayer({
       id:'barrier-lines', type:'line', source:'barriers',
+      filter:['!=',['get','effectiveness'],'gap'],
       paint:{
-        'line-color':['case',['==',['get','effectiveness'],'gap'],'#e84141',['==',['get','effectiveness'],'high'],'#44cc44',['==',['get','effectiveness'],'medium'],'#ffd700','#ff7b00'],
-        'line-width':4,
-        'line-dasharray':['case',['==',['get','effectiveness'],'gap'],['literal',[4,4]],['literal',[1,0]]]
+        'line-color':['case',['==',['get','effectiveness'],'high'],'#44cc44',['==',['get','effectiveness'],'medium'],'#ffd700','#ff7b00'],
+        'line-width':4
+      }
+    });
+    // Bright dashed lines for unprotected gaps — separate layer so they're clickable
+    map.addLayer({
+      id:'gap-lines', type:'line', source:'barriers',
+      filter:['==',['get','effectiveness'],'gap'],
+      paint:{
+        'line-color':'#ff4444',
+        'line-width':5,
+        'line-dasharray':[5, 4]
       }
     });
 
-    map.on('mouseenter','barrier-lines',()=>map.getCanvas().style.cursor='pointer');
-    map.on('mouseleave','barrier-lines',()=>map.getCanvas().style.cursor='');
-    map.on('click','barrier-lines', e => {
+    const openPopup = e => {
       if (activePopup) activePopup.remove();
       activePopup = new maplibregl.Popup({maxWidth:'300px', className:'barrier-popup'})
         .setLngLat(e.lngLat)
         .setHTML(buildBarrierHTML(e.features[0].properties))
         .addTo(map);
+    };
+    ['barrier-lines','gap-lines'].forEach(layer => {
+      map.on('mouseenter', layer, ()=>map.getCanvas().style.cursor='pointer');
+      map.on('mouseleave', layer, ()=>map.getCanvas().style.cursor='');
+      map.on('click', layer, openPopup);
     });
 
     setupFilters();
@@ -116,13 +130,14 @@ function setupFilters() {
   document.getElementById('filter-highway').addEventListener('change', applyFilters);
   document.getElementById('filter-show').addEventListener('change', applyFilters);
   document.getElementById('toggle-demographics').addEventListener('change', e => {
-    // Toggle would load a demographic layer — visual indicator for now
     const sb = document.getElementById('about-panel');
     if (e.target.checked) {
       sb.innerHTML += '<div style="padding:10px;background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.2);border-radius:6px;margin-top:10px;font-size:12px;color:var(--muted)">Demographic overlay: Line width proportional to % minority population. Thicker lines = more minority residents exposed.</div>';
       map.setPaintProperty('barrier-lines','line-width',['interpolate',['linear'],['get','pct_minority'],0,2,100,8]);
+      map.setPaintProperty('gap-lines','line-width',['interpolate',['linear'],['get','pct_minority'],0,3,100,9]);
     } else {
       map.setPaintProperty('barrier-lines','line-width',4);
+      map.setPaintProperty('gap-lines','line-width',5);
     }
   });
 }
@@ -130,11 +145,21 @@ function setupFilters() {
 function applyFilters() {
   const hwy = document.getElementById('filter-highway').value;
   const show = document.getElementById('filter-show').value;
-  const filter = ['all'];
-  if (hwy !== 'all') filter.push(['==',['get','highway'],hwy]);
-  if (show === 'barriers') filter.push(['!=',['get','effectiveness'],'gap']);
-  if (show === 'gaps') filter.push(['==',['get','effectiveness'],'gap']);
-  if (show === 'underperforming') filter.push(['all',['!=',['get','effectiveness'],'gap'],['==',['get','effectiveness'],'low']]);
-  const f = filter.length > 1 ? filter : null;
-  ['barrier-lines','barrier-lines-bg'].forEach(l => map.setFilter(l, f));
+  const hwyCond = hwy !== 'all' ? [['==',['get','highway'],hwy]] : [];
+
+  let barrierCond = [['!=',['get','effectiveness'],'gap']];
+  let gapCond = [['==',['get','effectiveness'],'gap']];
+
+  if (show === 'barriers') {
+    gapCond = [['==', 1, 0]]; // hide gaps
+  } else if (show === 'gaps') {
+    barrierCond = [['==', 1, 0]]; // hide barriers
+  } else if (show === 'underperforming') {
+    barrierCond = [['==',['get','effectiveness'],'low']];
+    gapCond = [['==', 1, 0]];
+  }
+
+  map.setFilter('barrier-lines', ['all', ...hwyCond, ...barrierCond]);
+  map.setFilter('gap-lines',     ['all', ...hwyCond, ...gapCond]);
+  map.setFilter('barrier-lines-bg', hwy !== 'all' ? ['==',['get','highway'],hwy] : null);
 }
